@@ -66,27 +66,34 @@ describe('MockHTTPSServer - TLS and ALPN Events', () => {
   });
 
   describe('ALPN Protocol Negotiation', () => {
-    it('should negotiate h2 protocol when client supports it', async () => {
+    it('should receive ALPN protocols from client', async () => {
+      const receivedProtocols: string[][] = [];
+
       server = new MockHTTPSServer({
         port: PORT,
         customALPNCallback: (clientProtocols) => {
-          if (clientProtocols.includes('h2')) return 'h2';
-          if (clientProtocols.includes('http/1.1')) return 'http/1.1';
-          return undefined;
+          receivedProtocols.push([...clientProtocols]);
+          // Always return http/1.1 for this test since native https module can't speak h2
+          return 'http/1.1';
         },
       });
       await server.start();
 
-      // Make request with h2 support
+      // Make request with h2 and http/1.1 support
       await makeRequest(`https://localhost:${PORT}/test`, ['h2', 'http/1.1']);
 
       const events = server.getEvents();
       const secureConnectionEvent = events.find((e) => e.type === 'secureConnection');
 
+      // Verify the callback received the client's ALPN protocols
+      expect(receivedProtocols.length).toBeGreaterThan(0);
+      expect(receivedProtocols[0]).toContain('h2');
+      expect(receivedProtocols[0]).toContain('http/1.1');
+
+      // Verify event captured the protocols
       expect(secureConnectionEvent).toBeDefined();
       expect(secureConnectionEvent?.clientProtocols).toContain('h2');
-      expect(secureConnectionEvent?.selectedProtocol).toBe('h2');
-      expect(secureConnectionEvent?.alpnProtocol).toBe('h2');
+      expect(secureConnectionEvent?.selectedProtocol).toBe('http/1.1');
     });
 
     it('should fallback to http/1.1 when h2 is not supported', async () => {
@@ -113,14 +120,15 @@ describe('MockHTTPSServer - TLS and ALPN Events', () => {
       expect(secureConnectionEvent?.alpnProtocol).toBe('http/1.1');
     });
 
-    it('should receive and log client ALPN protocols', async () => {
+    it('should capture ALPN callback invocation', async () => {
       const receivedProtocols: string[][] = [];
 
       server = new MockHTTPSServer({
         port: PORT,
         customALPNCallback: (clientProtocols) => {
           receivedProtocols.push([...clientProtocols]);
-          return clientProtocols.includes('h2') ? 'h2' : 'http/1.1';
+          // Always return http/1.1 for this test since native https module can't speak h2
+          return 'http/1.1';
         },
       });
       await server.start();
@@ -161,13 +169,19 @@ describe('MockHTTPSServer - TLS and ALPN Events', () => {
     });
 
     it('should include ALPN protocol in response headers', async () => {
-      server = new MockHTTPSServer({ port: PORT });
+      server = new MockHTTPSServer({
+        port: PORT,
+        customALPNCallback: (clientProtocols) => {
+          // Always return http/1.1 for this test since native https module can't speak h2
+          return 'http/1.1';
+        },
+      });
       await server.start();
 
       const response = await makeRequest(`https://localhost:${PORT}/test`, ['h2', 'http/1.1']);
 
       expect(response.headers['x-alpn-protocol']).toBeDefined();
-      expect(['h2', 'http/1.1', 'none']).toContain(response.headers['x-alpn-protocol']);
+      expect(response.headers['x-alpn-protocol']).toBe('http/1.1');
     });
   });
 
@@ -217,6 +231,8 @@ function makeRequest(
       method: 'GET',
       rejectUnauthorized: false,
       ca: readFileSync(join(process.cwd(), 'certs', 'server-cert.pem')),
+      // Prevent connection reuse issues
+      agent: false,
     };
 
     if (alpnProtocols) {

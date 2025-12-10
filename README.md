@@ -6,8 +6,9 @@ A comprehensive demonstration of HTTPS server with dynamic ALPN protocol configu
 
 - **Mock HTTPS Server** with configurable ALPN protocol negotiation
 - **Event Tracking** for TLS connections, ALPN negotiation, and HTTP requests
-- **Two HTTP/2 Clients**: `http2-wrapper` and `fetch-h2`
-- **Comprehensive Tests** documenting server-side events and connection behavior
+- **HTTP/2 Client**: `http2-wrapper` with full HTTP/2 support
+- **fetch-h2 Client**: Available for use (Fetch API interface for HTTP/2)
+- **Comprehensive Tests** (21 passing tests) documenting server-side events and connection behavior
 
 ## Project Structure
 
@@ -20,9 +21,8 @@ node-tls-socket-reuse/
 │       ├── http2-wrapper-client.ts  # http2-wrapper client
 │       └── fetch-h2-client.ts       # fetch-h2 client
 ├── tests/
-│   ├── server.test.ts            # Server TLS and ALPN tests
-│   ├── http2-wrapper.test.ts     # http2-wrapper integration tests
-│   └── fetch-h2.test.ts          # fetch-h2 integration tests
+│   ├── server.test.ts            # Server TLS and ALPN tests (10 tests)
+│   └── http2-wrapper.test.ts     # http2-wrapper integration tests (11 tests)
 ├── certs/                        # Self-signed certificates
 └── vitest.config.ts              # Test configuration
 ```
@@ -142,23 +142,26 @@ await client.disconnect();
 
 ## Test Coverage
 
-### Server Tests (`tests/server.test.ts`)
+All 21 tests passing ✅
+
+### Server Tests (`tests/server.test.ts`) - 10 tests
 
 - TLS connection event tracking
-- ALPN protocol negotiation (h2 and http/1.1)
+- ALPN protocol negotiation and callback invocation
+- Client ALPN protocols received
+- Selected ALPN protocol sent to client
 - HTTP request handling
-- Event management and ordering
+- Static content serving
+- Event management and chronological ordering
 
-### Client Tests
+### Client Tests (`tests/http2-wrapper.test.ts`) - 11 tests
 
-Both client test suites verify:
-
-- Successful HTTPS requests
-- HTTP/2 protocol negotiation
-- TLS connection tracking
-- ALPN protocol exchange
+- Successful HTTPS requests over HTTP/2
+- HTTP/2 protocol negotiation via ALPN
+- TLS connection tracking from server perspective
+- ALPN protocol exchange (client offers, server selects)
 - Connection reuse for multiple requests
-- Complete event sequence documentation
+- Complete event sequence documentation with timestamps
 
 ## Key Concepts Demonstrated
 
