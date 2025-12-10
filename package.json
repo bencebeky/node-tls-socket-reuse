@@ -1,0 +1,31 @@
+{
+  "name": "node-tls-socket-reuse",
+  "version": "1.0.0",
+  "description": "Mock HTTPS server with ALPN configuration and HTTP/2 clients",
+  "type": "module",
+  "scripts": {
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "build": "tsc",
+    "dev": "tsx watch src/server/https-server.ts"
+  },
+  "keywords": [
+    "http2",
+    "alpn",
+    "tls",
+    "https"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "http2-wrapper": "^2.2.1",
+    "fetch-h2": "^3.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@vitest/ui": "^3.0.0",
+    "typescript": "^5.3.3",
+    "tsx": "^4.7.0",
+    "vitest": "^3.0.0"
+  }
+}
