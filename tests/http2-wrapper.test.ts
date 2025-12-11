@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { MockHTTPSServer } from '../src/server/https-server.js';
 import { Http2WrapperClient } from '../src/clients/http2-wrapper-client.js';
+import { Http2WrapperAutoClient } from '../src/clients/http2-wrapper-auto-client.js';
 
 describe('Http2WrapperClient Integration Tests', () => {
   let server: MockHTTPSServer;
@@ -237,6 +238,106 @@ describe('Http2WrapperClient Integration Tests', () => {
       expect(connectionIndex).toBeGreaterThanOrEqual(0);
       expect(secureConnectionIndex).toBeGreaterThan(connectionIndex);
       expect(requestIndex).toBeGreaterThan(secureConnectionIndex);
+    });
+  });
+});
+
+describe('Http2WrapperAutoClient - ALPN Protocol Sniffing', () => {
+  let server: MockHTTPSServer;
+  let autoClient: Http2WrapperAutoClient;
+  const PORT = 9447;
+
+  beforeEach(async () => {
+    // Clear the auto() protocol cache before each test to force protocol detection
+    const { auto } = await import('http2-wrapper');
+    auto.protocolCache.clear();
+
+    autoClient = new Http2WrapperAutoClient();
+    server = new MockHTTPSServer({
+      port: PORT,
+      customALPNCallback: (clientProtocols) => {
+        // Prefer h2, fallback to http/1.1
+        if (clientProtocols.includes('h2')) return 'h2';
+        if (clientProtocols.includes('http/1.1')) return 'http/1.1';
+        return undefined;
+      },
+    });
+    await server.start();
+  });
+
+  afterEach(async () => {
+    if (server) {
+      await server.stop();
+    }
+  });
+
+  describe('ALPN Sniffing with agent:false', () => {
+    it('should make TWO TLS connections for a single request (ALPN sniffing)', async () => {
+      server.clearEvents();
+
+      await autoClient.request(`https://localhost:${PORT}/test`);
+
+      // http2-wrapper's auto() function with agent:false performs ALPN sniffing:
+      // 1. First TLS connection: Used to detect what protocols the server supports
+      //    This connection is destroyed after detecting the protocol
+      // 2. Second TLS connection: The actual connection used for the HTTP request
+      const tlsConnections = server.getTLSConnectionCount();
+      const httpRequests = server.getRequestCount();
+
+      console.log('\n=== http2-wrapper auto() ALPN Sniffing (agent:false) ===');
+      console.log(`TLS Connections: ${tlsConnections}`);
+      console.log(`HTTP Requests: ${httpRequests}`);
+      console.log('Ratio: 2 TLS connections for 1 HTTP request');
+      console.log('Reason: auto() opens a first connection to detect ALPN protocol,');
+      console.log('        then destroys it and opens a second connection for the request');
+      console.log('Implementation: Uses agent:false to prevent socket reuse');
+      console.log('');
+      console.log('Note: This demonstrates the ALPN sniffing overhead when socket');
+      console.log('      reuse is disabled (e.g., with custom agents or proxies)');
+
+      expect(httpRequests).toBe(1);
+      expect(tlsConnections).toBe(2);
+    });
+
+    it('should show two connection sequences for one HTTP request', async () => {
+      server.clearEvents();
+
+      const response = await autoClient.request(`https://localhost:${PORT}/test`);
+
+      const events = server.getEvents();
+      const connectionEvents = events.filter((e) => e.type === 'connection');
+      const secureConnectionEvents = events.filter((e) => e.type === 'secureConnection');
+      const requestEvents = events.filter((e) => e.type === 'request');
+      const errorEvents = events.filter((e) => e.type === 'tlsClientError');
+
+      console.log('\n=== Event Sequence with ALPN Sniffing ===');
+      events.forEach((event, index) => {
+        console.log(`${index + 1}. ${event.type}`);
+        if (event.clientProtocols) {
+          console.log(`   Client ALPN Protocols: ${event.clientProtocols.join(', ')}`);
+        }
+        if (event.selectedProtocol) {
+          console.log(`   Selected Protocol: ${event.selectedProtocol}`);
+        }
+        if (event.type === 'tlsClientError') {
+          console.log(`   (First connection destroyed after ALPN detection)`);
+        }
+        if (event.requestMethod && event.requestPath) {
+          console.log(`   HTTP Request: ${event.requestMethod} ${event.requestPath}`);
+          console.log(`   (This happens on the 2nd connection)`);
+        }
+      });
+
+      // Should have 2 TCP connections
+      expect(connectionEvents.length).toBe(2);
+      // Should have 2 TLS handshakes (one for sniffing, one for the request)
+      expect(secureConnectionEvents.length).toBe(2);
+      // The first connection is destroyed, causing a TLS error event
+      expect(errorEvents.length).toBe(1);
+      // But only 1 actual HTTP request
+      expect(requestEvents.length).toBe(1);
+
+      expect(response.statusCode).toBe(200);
     });
   });
 });
