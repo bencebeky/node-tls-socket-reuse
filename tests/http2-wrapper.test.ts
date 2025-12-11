@@ -439,5 +439,109 @@ describe('Http2WrapperAutoClient - ALPN Protocol Sniffing', () => {
         await alternatingServer.stop();
       }
     });
+
+    it('should FAIL when server changes from h2 to http/1.1 between connections', async () => {
+      // Create a new server that alternates ALPN protocol responses (opposite direction)
+      await server.stop();
+
+      let connectionCount = 0;
+      const alternatingServer = new MockHTTPSServer({
+        port: PORT,
+        customALPNCallback: (clientProtocols) => {
+          connectionCount++;
+          console.log(`\n[Server] Connection #${connectionCount}, client offers: ${clientProtocols.join(', ')}`);
+
+          // First connection (ALPN sniffing): respond with h2
+          // Second connection (actual request): respond with http/1.1
+          if (connectionCount === 1) {
+            console.log('[Server] Responding with: h2 (cache this!)');
+            return 'h2';
+          } else {
+            console.log('[Server] Responding with: http/1.1 (different from cache!)');
+            return 'http/1.1';
+          }
+        },
+      });
+      await alternatingServer.start();
+
+      try {
+        alternatingServer.clearEvents();
+
+        console.log('\n[Test] Making request with auto()...');
+        console.log('[Problem] This demonstrates the opposite ALPN sniffing cache issue:');
+        console.log('  1. Preflight connection (destroyed) -> server says h2');
+        console.log('  2. auto() caches: "use h2 for this host"');
+        console.log('  3. Actual request connection -> server says http/1.1');
+        console.log('  4. Client tries HTTP/2 over http/1.1 connection -> PROTOCOL MISMATCH!');
+
+        // This should fail because:
+        // 1. First connection detects h2, caches it
+        // 2. auto() decides to use h2 for the request
+        // 3. Second connection actually negotiates http/1.1
+        // 4. Client tries to send HTTP/2 frames over http/1.1 connection -> FAILS
+        let caughtError: any = null;
+        try {
+          await autoClient.request(`https://localhost:${PORT}/test`);
+          throw new Error('Expected request to fail but it succeeded!');
+        } catch (error) {
+          caughtError = error;
+          console.log('\n[Error Details]');
+          console.log('Error type:', error.constructor.name);
+          console.log('Error message:', error.message);
+          console.log('Error code:', (error as any).code);
+          console.log('Full error object:', JSON.stringify({
+            name: error.constructor.name,
+            message: error.message,
+            code: (error as any).code,
+            errno: (error as any).errno,
+            syscall: (error as any).syscall,
+          }, null, 2));
+        }
+
+        // Verify we caught an error
+        expect(caughtError).toBeTruthy();
+        expect(caughtError.message).toBeTruthy();
+
+        // Verify it's the expected TLS ALPN error
+        // When http2-wrapper cached h2 from the first connection, it only offers h2 on the second connection
+        // But the server responds with http/1.1, which wasn't in the client's offer
+        // This causes a TLS alert: no application protocol
+        expect(caughtError.code).toBe('ERR_SSL_TLSV1_ALERT_NO_APPLICATION_PROTOCOL');
+        expect(caughtError.message).toContain('tlsv1 alert no application protocol');
+
+        console.log('\n[Analysis] Why this specific error?');
+        console.log('- Client cached h2 from preflight connection');
+        console.log('- On 2nd connection, client ONLY offers h2 (not http/1.1)');
+        console.log('- Server responds with http/1.1 (not in client\'s offer list)');
+        console.log('- TLS handshake fails: ERR_SSL_TLSV1_ALERT_NO_APPLICATION_PROTOCOL');
+        console.log('- SSL alert number 120: no_application_protocol');
+        console.log('');
+        console.log('[Key Difference] This fails earlier than the http/1.1->h2 case:');
+        console.log('  - http/1.1->h2: TLS succeeds, HTTP parser fails (HPE_INVALID_CONSTANT)');
+        console.log('  - h2->http/1.1: TLS handshake fails (ERR_SSL_TLSV1_ALERT_NO_APPLICATION_PROTOCOL)');
+
+        const events = alternatingServer.getEvents();
+        console.log('\n[Events showing the protocol mismatch]');
+        events.forEach((e, i) => {
+          console.log(`${i + 1}. ${e.type}${e.selectedProtocol ? ` (ALPN: ${e.selectedProtocol})` : ''}`);
+        });
+
+        // We should see 2 TLS connections with different ALPN protocols
+        const secureConnections = events.filter((e) => e.type === 'secureConnection');
+        expect(secureConnections.length).toBe(2);
+        expect(secureConnections[0].selectedProtocol).toBe('h2');
+        expect(secureConnections[1].selectedProtocol).toBe('http/1.1');
+
+        // No HTTP request should succeed
+        const requests = alternatingServer.getRequestCount();
+        console.log(`\n[Result] HTTP Requests completed: ${requests}`);
+        console.log('[Conclusion] The request failed due to protocol mismatch!');
+        console.log('             Client expected h2 but connection is http/1.1');
+        expect(requests).toBe(0);
+
+      } finally {
+        await alternatingServer.stop();
+      }
+    });
   });
 });
