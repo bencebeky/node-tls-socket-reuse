@@ -379,7 +379,43 @@ describe('Http2WrapperAutoClient - ALPN Protocol Sniffing', () => {
         // 2. auto() decides to use http/1.1 for the request
         // 3. Second connection actually negotiates h2
         // 4. Client tries to send HTTP/1.1 request over h2 connection -> FAILS
-        await expect(autoClient.request(`https://localhost:${PORT}/test`)).rejects.toThrow();
+        let caughtError: any = null;
+        try {
+          await autoClient.request(`https://localhost:${PORT}/test`);
+          throw new Error('Expected request to fail but it succeeded!');
+        } catch (error) {
+          caughtError = error;
+          console.log('\n[Error Details]');
+          console.log('Error type:', error.constructor.name);
+          console.log('Error message:', error.message);
+          console.log('Error code:', (error as any).code);
+          console.log('Full error object:', JSON.stringify({
+            name: error.constructor.name,
+            message: error.message,
+            code: (error as any).code,
+            errno: (error as any).errno,
+            syscall: (error as any).syscall,
+          }, null, 2));
+        }
+
+        // Verify we caught an error
+        expect(caughtError).toBeTruthy();
+        expect(caughtError.message).toBeTruthy();
+
+        // Verify it's the expected HTTP parser error
+        // When http2-wrapper tries to send HTTP/1.1 over an h2 connection,
+        // the HTTP parser receives h2 frames instead of HTTP/1.1 text
+        expect(caughtError.message).toContain('Parse Error');
+        expect(caughtError.message).toContain('Expected HTTP/');
+        expect(caughtError.code).toBe('HPE_INVALID_CONSTANT');
+
+        console.log('\n[Analysis] Why this specific error?');
+        console.log('- Client thinks connection is HTTP/1.1 (from cache)');
+        console.log('- Client sends HTTP/1.1 text: "GET /test HTTP/1.1\\r\\n..."');
+        console.log('- But connection is actually HTTP/2 (h2)');
+        console.log('- Server sends HTTP/2 binary frames back');
+        console.log('- HTTP/1.1 parser receives binary data instead of "HTTP/"');
+        console.log('- Parser error: HPE_INVALID_CONSTANT - Expected HTTP/, got binary');
 
         const events = alternatingServer.getEvents();
         console.log('\n[Events showing the protocol mismatch]');
