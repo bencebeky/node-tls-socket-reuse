@@ -127,6 +127,28 @@ describe('FetchH2Client Integration Tests', () => {
     });
   });
 
+  describe('Efficient TLS Connection Behavior', () => {
+    it('should make only ONE TLS connection for a single request (no ALPN sniffing)', async () => {
+      server.clearEvents();
+
+      await client.request(`https://localhost:${PORT}/test`);
+
+      // fetch-h2 uses a single-connection approach:
+      // It directly opens a connection with ALPN negotiation and uses it for requests
+      const tlsConnections = server.getTLSConnectionCount();
+      const httpRequests = server.getRequestCount();
+
+      console.log('\n=== fetch-h2 Connection Pattern ===');
+      console.log(`TLS Connections: ${tlsConnections}`);
+      console.log(`HTTP Requests: ${httpRequests}`);
+      console.log('Ratio: 1 TLS connection for 1 HTTP request');
+      console.log('Reason: fetch-h2 negotiates ALPN directly without pre-sniffing');
+
+      expect(httpRequests).toBe(1);
+      expect(tlsConnections).toBe(1);
+    });
+  });
+
   describe('Multiple Requests and Connection Reuse', () => {
     it('should handle multiple sequential requests', async () => {
       server.clearEvents();

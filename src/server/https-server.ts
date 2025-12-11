@@ -181,6 +181,29 @@ export class MockHTTPSServer {
   isListening(): boolean {
     return this.listening;
   }
+
+  /**
+   * Get the count of TLS connections (secureConnection events)
+   * This represents the number of completed TLS handshakes
+   */
+  getTLSConnectionCount(): number {
+    return this.events.filter((e) => e.type === 'secureConnection').length;
+  }
+
+  /**
+   * Get the count of TCP connections (connection events)
+   * This represents the raw number of TCP sockets opened
+   */
+  getTCPConnectionCount(): number {
+    return this.events.filter((e) => e.type === 'connection').length;
+  }
+
+  /**
+   * Get the count of HTTP requests
+   */
+  getRequestCount(): number {
+    return this.events.filter((e) => e.type === 'request').length;
+  }
 }
 
 // Example usage

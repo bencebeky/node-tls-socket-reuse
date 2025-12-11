@@ -162,6 +162,32 @@ describe('Http2WrapperClient Integration Tests', () => {
     });
   });
 
+  describe('TLS Connection Efficiency', () => {
+    it('should make only ONE TLS connection when ALPN protocols are specified', async () => {
+      server.clearEvents();
+
+      await client.request(`https://localhost:${PORT}/test`);
+
+      // When http2-wrapper.request() is used with explicit ALPNProtocols in options,
+      // it negotiates the protocol directly during the TLS handshake without needing
+      // a separate connection for protocol detection (no ALPN sniffing)
+      const tlsConnections = server.getTLSConnectionCount();
+      const httpRequests = server.getRequestCount();
+
+      console.log('\n=== http2-wrapper.request() Connection Pattern ===');
+      console.log(`TLS Connections: ${tlsConnections}`);
+      console.log(`HTTP Requests: ${httpRequests}`);
+      console.log('Ratio: 1 TLS connection for 1 HTTP request');
+      console.log('Implementation: Specifies ALPNProtocols: ["h2", "http/1.1"]');
+      console.log('');
+      console.log('Note: http2-wrapper.auto() would use ALPN sniffing (2 connections)');
+      console.log('      but this client uses request() with explicit protocols');
+
+      expect(httpRequests).toBe(1);
+      expect(tlsConnections).toBe(1);
+    });
+  });
+
   describe('Event Sequence Documentation', () => {
     it('should document the complete event sequence for a single request', async () => {
       server.clearEvents();
