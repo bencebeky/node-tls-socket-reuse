@@ -405,8 +405,7 @@ describe('Http2WrapperAutoClient - ALPN Protocol Sniffing', () => {
         // Verify it's the expected HTTP parser error
         // When http2-wrapper tries to send HTTP/1.1 over an h2 connection,
         // the HTTP parser receives h2 frames instead of HTTP/1.1 text
-        expect(caughtError.message).toContain('Parse Error');
-        expect(caughtError.message).toContain('Expected HTTP/');
+        expect(caughtError.message).toBe('Parse Error: Expected HTTP/, RTSP/ or ICE/');
         expect(caughtError.code).toBe('HPE_INVALID_CONSTANT');
 
         console.log('\n[Analysis] Why this specific error?');
