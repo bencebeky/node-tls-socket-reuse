@@ -21,8 +21,9 @@ node-tls-socket-reuse/
 │       ├── http2-wrapper-client.ts  # http2-wrapper client
 │       └── fetch-h2-client.ts       # fetch-h2 client
 ├── tests/
-│   ├── server.test.ts            # Server TLS and ALPN tests (10 tests)
-│   └── http2-wrapper.test.ts     # http2-wrapper integration tests (11 tests)
+│   ├── server.test.ts            # Server TLS and ALPN tests
+│   ├── http2-wrapper.test.ts     # http2-wrapper integration tests
+│   └── fetch-h2.test.ts          # fetch-h2 integration tests
 ├── certs/                        # Self-signed certificates
 └── vitest.config.ts              # Test configuration
 ```
@@ -142,26 +143,23 @@ await client.disconnect();
 
 ## Test Coverage
 
-All 21 tests passing ✅
-
-### Server Tests (`tests/server.test.ts`) - 10 tests
+### Server Tests (`tests/server.test.ts`)
 
 - TLS connection event tracking
-- ALPN protocol negotiation and callback invocation
-- Client ALPN protocols received
-- Selected ALPN protocol sent to client
+- ALPN protocol negotiation (h2 and http/1.1)
 - HTTP request handling
-- Static content serving
-- Event management and chronological ordering
+- Event management and ordering
 
-### Client Tests (`tests/http2-wrapper.test.ts`) - 11 tests
+### Client Tests
 
-- Successful HTTPS requests over HTTP/2
-- HTTP/2 protocol negotiation via ALPN
-- TLS connection tracking from server perspective
-- ALPN protocol exchange (client offers, server selects)
+Both client test suites verify:
+
+- Successful HTTPS requests
+- HTTP/2 protocol negotiation
+- TLS connection tracking
+- ALPN protocol exchange
 - Connection reuse for multiple requests
-- Complete event sequence documentation with timestamps
+- Complete event sequence documentation
 
 ## Key Concepts Demonstrated
 
