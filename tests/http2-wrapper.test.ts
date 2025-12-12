@@ -3,7 +3,7 @@ import { MockHTTPSServer } from '../src/server/https-server.js';
 import { Http2WrapperClient } from '../src/clients/http2-wrapper-client.js';
 import { Http2WrapperAutoClient } from '../src/clients/http2-wrapper-auto-client.js';
 
-describe('Http2WrapperClient Integration Tests', () => {
+describe('Http2WrapperClient Integration Tests - Direct request() API', () => {
   let server: MockHTTPSServer;
   let client: Http2WrapperClient;
   const PORT = 9444;
@@ -30,11 +30,19 @@ describe('Http2WrapperClient Integration Tests', () => {
 
   describe('Basic HTTP/2 Requests', () => {
     it('should successfully make an HTTPS request', async () => {
+      server.clearEvents();
+
       const response = await client.request(`https://localhost:${PORT}/test`);
 
       expect(response.statusCode).toBe(200);
       expect(response.body).toContain('Hello from mock HTTPS server!');
       expect(response.headers['content-type']).toBe('text/plain');
+
+      // Verify client advertised ALPN protocols
+      // http2-wrapper.request() with HTTP/2 only advertises 'h2'
+      const clientProtocols = server.getClientALPNProtocols();
+      expect(clientProtocols.length).toBe(1);
+      expect(clientProtocols[0]).toEqual(['h2']);
     });
 
     it('should negotiate HTTP/2 protocol', async () => {
@@ -56,13 +64,27 @@ describe('Http2WrapperClient Integration Tests', () => {
       // Verify request was made with HTTP/2
       expect(requestEvent?.alpnProtocol).toBe('h2');
       expect(requestEvent?.httpVersion).toBe('2.0');
+
+      // Verify client advertised ALPN protocols
+      // http2-wrapper.request() with HTTP/2 only advertises 'h2'
+      const clientProtocols = server.getClientALPNProtocols();
+      expect(clientProtocols.length).toBe(1);
+      expect(clientProtocols[0]).toEqual(['h2']);
     });
 
     it('should include ALPN protocol in response headers', async () => {
+      server.clearEvents();
+
       const response = await client.request(`https://localhost:${PORT}/test`);
 
       expect(response.headers['x-alpn-protocol']).toBe('h2');
       expect(response.headers['x-http-version']).toBe('2.0');
+
+      // Verify client advertised ALPN protocols
+      // http2-wrapper.request() with HTTP/2 only advertises 'h2'
+      const clientProtocols = server.getClientALPNProtocols();
+      expect(clientProtocols.length).toBe(1);
+      expect(clientProtocols[0]).toEqual(['h2']);
     });
   });
 
@@ -78,6 +100,12 @@ describe('Http2WrapperClient Integration Tests', () => {
       expect(connectionEvent).toBeDefined();
       expect(connectionEvent?.type).toBe('connection');
       expect(connectionEvent?.timestamp).toBeInstanceOf(Date);
+
+      // Verify client advertised ALPN protocols
+      // http2-wrapper.request() with HTTP/2 only advertises 'h2'
+      const clientProtocols = server.getClientALPNProtocols();
+      expect(clientProtocols.length).toBe(1);
+      expect(clientProtocols[0]).toEqual(['h2']);
     });
 
     it('should track ALPN protocols received from client', async () => {
@@ -92,6 +120,12 @@ describe('Http2WrapperClient Integration Tests', () => {
       expect(secureConnectionEvent?.clientProtocols).toBeDefined();
       expect(Array.isArray(secureConnectionEvent?.clientProtocols)).toBe(true);
       expect(secureConnectionEvent?.clientProtocols).toContain('h2');
+
+      // Verify client advertised ALPN protocols
+      // http2-wrapper.request() with HTTP/2 only advertises 'h2'
+      const clientProtocols = server.getClientALPNProtocols();
+      expect(clientProtocols.length).toBe(1);
+      expect(clientProtocols[0]).toEqual(['h2']);
     });
 
     it('should track selected ALPN protocol sent to client', async () => {
@@ -104,6 +138,12 @@ describe('Http2WrapperClient Integration Tests', () => {
 
       expect(secureConnectionEvent?.selectedProtocol).toBeDefined();
       expect(['h2', 'http/1.1']).toContain(secureConnectionEvent?.selectedProtocol);
+
+      // Verify client advertised ALPN protocols
+      // http2-wrapper.request() with HTTP/2 only advertises 'h2'
+      const clientProtocols = server.getClientALPNProtocols();
+      expect(clientProtocols.length).toBe(1);
+      expect(clientProtocols[0]).toEqual(['h2']);
     });
 
     it('should track HTTP request received from client', async () => {
@@ -119,6 +159,12 @@ describe('Http2WrapperClient Integration Tests', () => {
       expect(requestEvent?.requestMethod).toBe('GET');
       expect(requestEvent?.requestPath).toBe('/api/test');
       expect(requestEvent?.alpnProtocol).toBe('h2');
+
+      // Verify client advertised ALPN protocols
+      // http2-wrapper.request() with HTTP/2 only advertises 'h2'
+      const clientProtocols = server.getClientALPNProtocols();
+      expect(clientProtocols.length).toBe(1);
+      expect(clientProtocols[0]).toEqual(['h2']);
     });
   });
 
@@ -138,6 +184,14 @@ describe('Http2WrapperClient Integration Tests', () => {
       const events = server.getEvents();
       const requestEvents = events.filter((e) => e.type === 'request');
       expect(requestEvents.length).toBe(3);
+
+      // Verify client advertised ALPN protocols on each connection
+      // http2-wrapper.request() with HTTP/2 only advertises 'h2'
+      const clientProtocols = server.getClientALPNProtocols();
+      expect(clientProtocols.length).toBeGreaterThan(0);
+      clientProtocols.forEach((protocols) => {
+        expect(protocols).toEqual(['h2']);
+      });
     });
 
     it('should document connection reuse for multiple requests', async () => {
@@ -159,6 +213,14 @@ describe('Http2WrapperClient Integration Tests', () => {
       // All requests should use the same protocol
       requestEvents.forEach((event) => {
         expect(event.alpnProtocol).toBe('h2');
+      });
+
+      // Verify client advertised ALPN protocols on each connection
+      // http2-wrapper.request() with HTTP/2 only advertises 'h2'
+      const clientProtocols = server.getClientALPNProtocols();
+      expect(clientProtocols.length).toBeGreaterThan(0);
+      clientProtocols.forEach((protocols) => {
+        expect(protocols).toEqual(['h2']);
       });
     });
   });
@@ -186,6 +248,12 @@ describe('Http2WrapperClient Integration Tests', () => {
 
       expect(httpRequests).toBe(1);
       expect(tlsConnections).toBe(1);
+
+      // Verify client advertised ALPN protocols
+      // http2-wrapper.request() with HTTP/2 only advertises 'h2'
+      const clientProtocols = server.getClientALPNProtocols();
+      expect(clientProtocols.length).toBe(1);
+      expect(clientProtocols[0]).toEqual(['h2']);
     });
   });
 
@@ -221,6 +289,12 @@ describe('Http2WrapperClient Integration Tests', () => {
       expect(eventTypes).toContain('connection');
       expect(eventTypes).toContain('secureConnection');
       expect(eventTypes).toContain('request');
+
+      // Verify client advertised ALPN protocols
+      // http2-wrapper.request() with HTTP/2 only advertises 'h2'
+      const clientProtocols = server.getClientALPNProtocols();
+      expect(clientProtocols.length).toBe(1);
+      expect(clientProtocols[0]).toEqual(['h2']);
     });
 
     it('should show TLS handshake completes before HTTP request', async () => {
@@ -238,6 +312,12 @@ describe('Http2WrapperClient Integration Tests', () => {
       expect(connectionIndex).toBeGreaterThanOrEqual(0);
       expect(secureConnectionIndex).toBeGreaterThan(connectionIndex);
       expect(requestIndex).toBeGreaterThan(secureConnectionIndex);
+
+      // Verify client advertised ALPN protocols
+      // http2-wrapper.request() with HTTP/2 only advertises 'h2'
+      const clientProtocols = server.getClientALPNProtocols();
+      expect(clientProtocols.length).toBe(1);
+      expect(clientProtocols[0]).toEqual(['h2']);
     });
   });
 });
@@ -297,6 +377,12 @@ describe('Http2WrapperAutoClient - ALPN Protocol Sniffing', () => {
 
       expect(httpRequests).toBe(1);
       expect(tlsConnections).toBe(2);
+
+      // Verify client advertised ALPN protocols on both connections
+      const clientProtocols = server.getClientALPNProtocols();
+      expect(clientProtocols.length).toBe(2);
+      expect(clientProtocols[0]).toEqual(['h2', 'http/1.1']); // First connection (ALPN sniffing)
+      expect(clientProtocols[1]).toEqual(['h2']); // Second connection only offers cached protocol
     });
 
     it('should show two connection sequences for one HTTP request', async () => {
@@ -338,6 +424,12 @@ describe('Http2WrapperAutoClient - ALPN Protocol Sniffing', () => {
       expect(requestEvents.length).toBe(1);
 
       expect(response.statusCode).toBe(200);
+
+      // Verify client advertised ALPN protocols on both connections
+      const clientProtocols = server.getClientALPNProtocols();
+      expect(clientProtocols.length).toBe(2);
+      expect(clientProtocols[0]).toEqual(['h2', 'http/1.1']); // First connection (ALPN sniffing)
+      expect(clientProtocols[1]).toEqual(['h2']); // Second connection only offers cached protocol
     });
 
     it('should FAIL when server changes ALPN protocol between connections', async () => {
@@ -434,6 +526,12 @@ describe('Http2WrapperAutoClient - ALPN Protocol Sniffing', () => {
         console.log('[Conclusion] The request failed due to protocol mismatch!');
         console.log('             Client expected http/1.1 but connection is h2');
         expect(requests).toBe(0);
+
+        // Verify client advertised ALPN protocols on both connections
+        const clientProtocols = alternatingServer.getClientALPNProtocols();
+        expect(clientProtocols.length).toBe(2);
+        expect(clientProtocols[0]).toEqual(['h2', 'http/1.1']); // First connection (ALPN sniffing)
+        expect(clientProtocols[1]).toEqual(['h2', 'http/1.1']); // Second connection (actual request)
 
       } finally {
         await alternatingServer.stop();
@@ -539,6 +637,12 @@ describe('Http2WrapperAutoClient - ALPN Protocol Sniffing', () => {
         console.log('[Conclusion] The request failed due to protocol mismatch!');
         console.log('             Client expected h2 but connection has no ALPN (defaults to HTTP/1.1)');
         expect(requests).toBe(0);
+
+        // Verify client advertised ALPN protocols on both connections
+        const clientProtocols = alternatingServer.getClientALPNProtocols();
+        expect(clientProtocols.length).toBe(2);
+        expect(clientProtocols[0]).toEqual(['h2', 'http/1.1']); // First connection (ALPN sniffing)
+        expect(clientProtocols[1]).toEqual(['h2']); // Second connection only offers h2 (cached from first)
 
       } finally {
         await alternatingServer.stop();

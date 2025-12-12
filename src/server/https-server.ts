@@ -204,6 +204,16 @@ export class MockHTTPSServer {
   getRequestCount(): number {
     return this.events.filter((e) => e.type === 'request').length;
   }
+
+  /**
+   * Get the ALPN protocol lists received from the client for each secure connection
+   * Returns an array of protocol lists in the order connections were made
+   */
+  getClientALPNProtocols(): (string[] | undefined)[] {
+    return this.events
+      .filter((e) => e.type === 'secureConnection')
+      .map((e) => e.clientProtocols);
+  }
 }
 
 // Example usage
