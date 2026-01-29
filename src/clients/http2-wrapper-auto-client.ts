@@ -58,6 +58,7 @@ export class Http2WrapperAutoClient {
         // Set agent: false to prevent socket reuse, forcing ALPN sniffing
         // to create a separate connection that gets destroyed
         agent: false,
+        resolveProtocol: () => auto.createResolveProtocol(new Map(), new Map()),
         // Intentionally do NOT specify ALPNProtocols here
         // The auto() function will detect and negotiate the protocol automatically
       };
