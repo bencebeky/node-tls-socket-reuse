@@ -34,6 +34,22 @@ node-tls-socket-reuse/
 npm install
 ```
 
+## Certificate Setup
+
+The HTTPS server requires self-signed certificates for local development. Generate them with:
+
+```bash
+mkdir -p certs
+cd certs
+openssl req -x509 -newkey rsa:2048 -keyout server-key.pem -out server-cert.pem -days 365 -nodes -subj "/CN=localhost"
+```
+
+This creates:
+- `certs/server-key.pem` - Private key
+- `certs/server-cert.pem` - Self-signed certificate valid for 365 days
+
+**Note:** The certificates are self-signed and intended for testing only. Your HTTP client may need to disable certificate validation (e.g., `rejectUnauthorized: false`).
+
 ## Usage
 
 ### Running the Server
