@@ -98,25 +98,3 @@ export class Http2WrapperClient {
     return Promise.all(requests);
   }
 }
-
-// Example usage
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const client = new Http2WrapperClient();
-
-  try {
-    console.log('Making request with http2-wrapper...');
-    const response = await client.request('https://localhost:8443/test');
-
-    console.log('Status:', response.statusCode);
-    console.log('HTTP Version:', response.httpVersion);
-    console.log('ALPN Protocol:', response.alpnProtocol);
-    console.log('Headers:', response.headers);
-    console.log('Body:', response.body);
-
-    console.log('\nMaking 3 sequential requests...');
-    const responses = await client.multipleRequests('https://localhost:8443/test', 3);
-    console.log(`Completed ${responses.length} requests`);
-  } catch (err) {
-    console.error('Error:', err);
-  }
-}

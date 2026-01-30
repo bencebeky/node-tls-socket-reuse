@@ -100,26 +100,3 @@ export class FetchH2Client {
     await disconnectAll();
   }
 }
-
-// Example usage
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const client = new FetchH2Client();
-
-  try {
-    console.log('Making request with fetch-h2...');
-    const response = await client.request('https://localhost:8443/test');
-
-    console.log('Status:', response.statusCode);
-    console.log('HTTP Version:', response.httpVersion);
-    console.log('Headers:', response.headers);
-    console.log('Body:', response.body);
-
-    console.log('\nMaking 3 sequential requests...');
-    const responses = await client.multipleRequests('https://localhost:8443/test', 3);
-    console.log(`Completed ${responses.length} requests`);
-
-    await client.disconnect();
-  } catch (err) {
-    console.error('Error:', err);
-  }
-}
