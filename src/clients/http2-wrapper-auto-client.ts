@@ -1,7 +1,7 @@
-import { auto } from "http2-wrapper";
-import { readFileSync } from "fs";
-import { join } from "path";
-import type { IncomingMessage } from "http";
+import { auto } from 'http2-wrapper';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import type { IncomingMessage } from 'http';
 
 export interface ClientResponse {
   statusCode: number;
@@ -36,9 +36,7 @@ export class Http2WrapperAutoClient {
     // If CA is not provided, use the self-signed cert
     if (!this.config.ca && !this.config.rejectUnauthorized) {
       try {
-        this.config.ca = readFileSync(
-          join(process.cwd(), "certs", "server-cert.pem"),
-        );
+        this.config.ca = readFileSync(join(process.cwd(), 'certs', 'server-cert.pem'));
       } catch (err) {
         // Ignore if cert file doesn't exist
       }
@@ -53,7 +51,7 @@ export class Http2WrapperAutoClient {
         hostname: parsedUrl.hostname,
         port: parsedUrl.port || 443,
         path: parsedUrl.pathname + parsedUrl.search,
-        method: "GET",
+        method: 'GET',
         protocol: parsedUrl.protocol,
         rejectUnauthorized: this.config.rejectUnauthorized,
         ca: this.config.ca,
@@ -69,16 +67,16 @@ export class Http2WrapperAutoClient {
         const req = await auto(options, (res: IncomingMessage) => {
           const chunks: Buffer[] = [];
 
-          res.on("data", (chunk: Buffer) => {
+          res.on('data', (chunk: Buffer) => {
             chunks.push(chunk);
           });
 
-          res.on("end", () => {
-            const body = Buffer.concat(chunks).toString("utf-8");
+          res.on('end', () => {
+            const body = Buffer.concat(chunks).toString('utf-8');
 
             // Try to get ALPN protocol from socket
             let alpnProtocol: string | false = false;
-            if (res.socket && "alpnProtocol" in res.socket) {
+            if (res.socket && 'alpnProtocol' in res.socket) {
               alpnProtocol = (res.socket as any).alpnProtocol;
             }
 
@@ -86,17 +84,17 @@ export class Http2WrapperAutoClient {
               statusCode: res.statusCode || 0,
               headers: res.headers as Record<string, string | string[]>,
               body,
-              httpVersion: res.httpVersion || "1.1",
+              httpVersion: res.httpVersion || '1.1',
               alpnProtocol: alpnProtocol || undefined,
             });
           });
 
-          res.on("error", (err: Error) => {
+          res.on('error', (err: Error) => {
             reject(err);
           });
         });
 
-        req.on("error", (err: Error) => {
+        req.on('error', (err: Error) => {
           reject(err);
         });
 
@@ -107,10 +105,7 @@ export class Http2WrapperAutoClient {
     });
   }
 
-  async multipleRequests(
-    url: string,
-    count: number,
-  ): Promise<ClientResponse[]> {
+  async multipleRequests(url: string, count: number): Promise<ClientResponse[]> {
     const requests: Promise<ClientResponse>[] = [];
 
     for (let i = 0; i < count; i++) {
