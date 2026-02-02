@@ -53,35 +53,6 @@ describe('TLSReuseClient with HTTP/2 server', () => {
       expect(requestEvent?.httpVersion).toBe('2.0');
     });
   });
-
-  describe('multiple requests', () => {
-    it('should reuse the same TLS socket for multiple HTTP/2 requests', async () => {
-      const responses = await client.multipleRequests(
-        `https://localhost:${PORT}/test`,
-        3,
-        true // reuse socket
-      );
-
-      // All requests should succeed
-      expect(responses).toHaveLength(3);
-      responses.forEach((response) => {
-        expect(response.statusCode).toBe(200);
-        expect(response.httpVersion).toBe('2.0');
-        expect(response.alpnProtocol).toBe('h2');
-      });
-
-      // IMPORTANT: Only 1 TLS connection should have been made
-      const events = server.getEvents();
-      const secureConnectionEvents = events.filter((e) => e.type === 'secureConnection');
-      expect(secureConnectionEvents.length).toBe(1);
-
-      const requestEvents = events.filter((e) => e.type === 'request');
-      expect(requestEvents.length).toBe(3);
-
-      // Verify we have one cached socket
-      expect(client.getCachedSocketCount()).toBe(1);
-    });
-  });
 });
 
 describe('TLSReuseClient with HTTP/1.1 server', () => {
@@ -133,35 +104,6 @@ describe('TLSReuseClient with HTTP/1.1 server', () => {
       expect(requestEvent?.requestPath).toBe('/test');
       expect(requestEvent?.alpnProtocol).toBe('http/1.1');
       expect(requestEvent?.httpVersion).toBe('1.1');
-    });
-  });
-
-  describe('multiple requests', () => {
-    it('should reuse the same TLS socket for multiple HTTP/1.1 requests', async () => {
-      const responses = await client.multipleRequests(
-        `https://localhost:${PORT}/test`,
-        3,
-        true // reuse socket
-      );
-
-      // All requests should succeed
-      expect(responses).toHaveLength(3);
-      responses.forEach((response) => {
-        expect(response.statusCode).toBe(200);
-        expect(response.httpVersion).toBe('1.1');
-        expect(response.alpnProtocol).toBe('http/1.1');
-      });
-
-      // For HTTP/1.1 with keep-alive, we should still only have 1 connection
-      const events = server.getEvents();
-      const secureConnectionEvents = events.filter((e) => e.type === 'secureConnection');
-      expect(secureConnectionEvents.length).toBe(1);
-
-      const requestEvents = events.filter((e) => e.type === 'request');
-      expect(requestEvents.length).toBe(3);
-
-      // Verify we have one cached socket
-      expect(client.getCachedSocketCount()).toBe(1);
     });
   });
 });

@@ -250,51 +250,6 @@ export class TLSReuseClient {
     }
   }
 
-  async multipleRequests(
-    url: string,
-    count: number,
-    reuseSocket: boolean = true
-  ): Promise<ClientResponse[]> {
-    const responses: ClientResponse[] = [];
-    const parsedUrl = new URL(url);
-    const hostname = parsedUrl.hostname;
-    const port = parseInt(parsedUrl.port) || 443;
-    const connectionKey = `${hostname}:${port}`;
-
-    if (reuseSocket && count > 0) {
-      // Make the first request to establish and cache the connection
-      responses.push(await this.request(url, reuseSocket));
-
-      // Check what protocol was negotiated
-      const connection = this.connectionCache.get(connectionKey);
-      const isHttp2 = connection && connection.socket.alpnProtocol === 'h2';
-
-      if (isHttp2) {
-        // HTTP/2 supports concurrent requests on the same connection
-        const remainingRequests: Promise<ClientResponse>[] = [];
-        for (let i = 1; i < count; i++) {
-          remainingRequests.push(this.request(url, reuseSocket));
-        }
-        const remainingResponses = await Promise.all(remainingRequests);
-        responses.push(...remainingResponses);
-      } else {
-        // HTTP/1.1 requires sequential requests on the same socket
-        for (let i = 1; i < count; i++) {
-          responses.push(await this.request(url, reuseSocket));
-        }
-      }
-    } else {
-      // If not reusing sockets, make all requests in parallel
-      const requests: Promise<ClientResponse>[] = [];
-      for (let i = 0; i < count; i++) {
-        requests.push(this.request(url, reuseSocket));
-      }
-      return Promise.all(requests);
-    }
-
-    return responses;
-  }
-
   /**
    * Close all cached connections
    */

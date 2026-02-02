@@ -105,14 +105,4 @@ export class Http2WrapperAutoClient {
       }
     });
   }
-
-  async multipleRequests(url: string, count: number): Promise<ClientResponse[]> {
-    const requests: Promise<ClientResponse>[] = [];
-
-    for (let i = 0; i < count; i++) {
-      requests.push(this.request(url));
-    }
-
-    return Promise.all(requests);
-  }
 }

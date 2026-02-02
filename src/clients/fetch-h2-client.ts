@@ -82,16 +82,6 @@ export class FetchH2Client {
     };
   }
 
-  async multipleRequests(url: string, count: number): Promise<ClientResponse[]> {
-    const requests: Promise<ClientResponse>[] = [];
-
-    for (let i = 0; i < count; i++) {
-      requests.push(this.request(url));
-    }
-
-    return Promise.all(requests);
-  }
-
   async disconnect(): Promise<void> {
     await this.ctx.disconnectAll();
   }
