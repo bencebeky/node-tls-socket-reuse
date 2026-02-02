@@ -1,3 +1,4 @@
+import { auto } from 'http2-wrapper';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { MockHTTPSServer } from '../src/server/https-server.js';
 import { Http2WrapperClient } from '../src/clients/http2-wrapper-client.js';
@@ -296,6 +297,112 @@ describe('Http2WrapperAutoClient with HTTP/2 then HTTP/1.1 ALPN response', () =>
       expect(clientProtocols.length).toBe(2);
       expect(clientProtocols[0]).toEqual(['h2', 'http/1.1']);
       expect(clientProtocols[1]).toEqual(['h2']);
+    });
+  });
+});
+
+describe('Http2WrapperAutoClient with resolveProtocol with HTTP/1.1 server', () => {
+  let server: MockHTTPSServer;
+  let autoClient: Http2WrapperAutoClient;
+  const PORT = 9447;
+
+  beforeEach(async () => {
+    // Clear the auto() protocol cache before each test to force protocol detection
+    const { auto } = await import('http2-wrapper');
+    auto.protocolCache.clear();
+
+    autoClient = new Http2WrapperAutoClient();
+    server = new MockHTTPSServer({
+      port: PORT,
+      customALPNCallback: (clientProtocols) => {
+        expect(clientProtocols).toEqual(['h2', 'http/1.1']);
+        return 'http/1.1';
+      },
+    });
+    await server.start();
+  });
+
+  afterEach(async () => {
+    if (server) {
+      await server.stop();
+    }
+  });
+
+  describe('basic request', () => {
+    it('should succeed', async () => {
+      await autoClient.request(`https://localhost:${PORT}/test`, () => auto.createResolveProtocol(new Map(), new Map()));
+
+      const events = server.getEvents();
+      const secureConnectionEvents = events.filter((e) => e.type === 'secureConnection');
+      expect(secureConnectionEvents.length).toBe(1);
+      const secureConnectionEvent = secureConnectionEvents[0]; 
+
+      // Client advertises both HTTP/2 and HTTP/1.1 on the first connection.
+      expect(secureConnectionEvent?.clientProtocols).toEqual(['h2', 'http/1.1']);
+      expect(secureConnectionEvent?.selectedProtocol).toBe('http/1.1');
+
+      const requestEvents = events.filter((e) => e.type === 'request');
+      expect(requestEvents.length).toBe(1);
+      const requestEvent = requestEvents[0];
+      expect(requestEvent?.requestMethod).toBe('GET');
+      expect(requestEvent?.requestPath).toBe('/test');
+      expect(requestEvent?.alpnProtocol).toBe('http/1.1');
+      expect(requestEvent?.httpVersion).toBe('1.1');
+    });
+  });
+});
+
+describe('Http2WrapperAutoClient with resolveProtocol with HTTP/2 server', () => {
+  let server: MockHTTPSServer;
+  let autoClient: Http2WrapperAutoClient;
+  const PORT = 9447;
+
+  beforeEach(async () => {
+    // Clear the auto() protocol cache before each test to force protocol detection
+    const { auto } = await import('http2-wrapper');
+    auto.protocolCache.clear();
+
+    autoClient = new Http2WrapperAutoClient();
+    server = new MockHTTPSServer({
+      port: PORT,
+      customALPNCallback: (clientProtocols) => {
+        expect(clientProtocols).toEqual(['h2', 'http/1.1']);
+        return 'h2';
+      },
+    });
+    await server.start();
+  });
+
+  afterEach(async () => {
+    if (server) {
+      await server.stop();
+    }
+  });
+
+  describe('basic request', () => {
+    it('should fail', async () => {
+      // http2-wrapper advertises HTTP/2 support but in fact tries parsing the
+      // response as HTTP/1.1 and fails
+      let caughtError: any = null;
+      try {
+        await autoClient.request(`https://localhost:${PORT}/test`, () => auto.createResolveProtocol(new Map(), new Map()));
+      } catch (error) {
+        caughtError = error;
+      }
+      expect(caughtError).toBeInstanceOf(Error);
+      expect(caughtError.message).toBe('Parse Error: Expected HTTP/, RTSP/ or ICE/');
+      expect(caughtError.code).toBe('HPE_INVALID_CONSTANT');
+
+      const events = server.getEvents();
+      const secureConnectionEvents = events.filter((e) => e.type === 'secureConnection');
+      expect(secureConnectionEvents.length).toBe(1);
+      const secureConnectionEvent = secureConnectionEvents[0];
+
+      expect(secureConnectionEvent?.clientProtocols).toEqual(['h2', 'http/1.1']);
+      expect(secureConnectionEvent?.selectedProtocol).toBe('h2');
+
+      const requestEvents = events.filter((e) => e.type === 'request');
+      expect(requestEvents.length).toBe(0);
     });
   });
 });
