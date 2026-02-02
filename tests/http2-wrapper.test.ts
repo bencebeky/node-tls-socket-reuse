@@ -140,7 +140,6 @@ describe('Http2WrapperAutoClient with HTTP/2 server', () => {
       const events = server.getEvents();
       const secureConnectionEvents = events.filter((e) => e.type === 'secureConnection');
       expect(secureConnectionEvents.length).toBe(2);
-      const secureConnectionEvent = secureConnectionEvents[0];
 
       // Client advertises both HTTP/2 and HTTP/1.1 on the first connection.
       expect(secureConnectionEvents[0].clientProtocols).toEqual(['h2', 'http/1.1']);
