@@ -1,10 +1,15 @@
-import { createSecureServer, Http2SecureServer, Http2ServerRequest, Http2ServerResponse } from 'http2';
-import { readFileSync } from 'fs';
-import { join } from 'path';
-import type { TLSSocket } from 'tls';
+import {
+  createSecureServer,
+  Http2SecureServer,
+  Http2ServerRequest,
+  Http2ServerResponse,
+} from "http2";
+import { readFileSync } from "fs";
+import { join } from "path";
+import type { TLSSocket } from "tls";
 
 export interface TLSConnectionEvent {
-  type: 'connection' | 'secureConnection' | 'request' | 'tlsClientError';
+  type: "connection" | "secureConnection" | "request" | "tlsClientError";
   timestamp: Date;
   alpnProtocol?: string | false;
   clientProtocols?: string[];
@@ -31,23 +36,26 @@ export class MockHTTPSServer {
   constructor(config: ServerConfig) {
     this.config = {
       allowHTTP1: true,
-      allowedProtocols: ['h2', 'http/1.1'],
+      allowedProtocols: ["h2", "http/1.1"],
       ...config,
     };
 
-    const certPath = join(process.cwd(), 'certs');
+    const certPath = join(process.cwd(), "certs");
 
     const serverOptions: any = {
-      key: readFileSync(join(certPath, 'server-key.pem')),
-      cert: readFileSync(join(certPath, 'server-cert.pem')),
+      key: readFileSync(join(certPath, "server-key.pem")),
+      cert: readFileSync(join(certPath, "server-cert.pem")),
       allowHTTP1: this.config.allowHTTP1,
     };
 
     // Add custom ALPN callback if provided
     if (this.config.customALPNCallback) {
-      serverOptions.ALPNCallback = (options: { servername: string; protocols: string[] }) => {
+      serverOptions.ALPNCallback = (options: {
+        servername: string;
+        protocols: string[];
+      }) => {
         this.events.push({
-          type: 'secureConnection',
+          type: "secureConnection",
           timestamp: new Date(),
           clientProtocols: options.protocols,
         });
@@ -62,53 +70,59 @@ export class MockHTTPSServer {
       };
     }
 
-    this.server = createSecureServer(serverOptions, this.handleRequest.bind(this));
+    this.server = createSecureServer(
+      serverOptions,
+      this.handleRequest.bind(this),
+    );
 
     this.setupEventListeners();
   }
 
   private setupEventListeners(): void {
     // Track raw TCP connection
-    this.server.on('connection', (socket) => {
+    this.server.on("connection", (socket) => {
       this.events.push({
-        type: 'connection',
+        type: "connection",
         timestamp: new Date(),
       });
     });
 
     // Track TLS handshake completion
-    this.server.on('secureConnection', (tlsSocket: TLSSocket) => {
+    this.server.on("secureConnection", (tlsSocket: TLSSocket) => {
       // Only add if not already added by ALPNCallback
       if (!this.config.customALPNCallback) {
         this.events.push({
-          type: 'secureConnection',
+          type: "secureConnection",
           timestamp: new Date(),
           alpnProtocol: tlsSocket.alpnProtocol,
         });
       } else {
         // Update the last event with alpnProtocol
         const lastEvent = this.events[this.events.length - 1];
-        if (lastEvent && lastEvent.type === 'secureConnection') {
+        if (lastEvent && lastEvent.type === "secureConnection") {
           lastEvent.alpnProtocol = tlsSocket.alpnProtocol;
         }
       }
     });
 
     // Track TLS errors
-    this.server.on('tlsClientError', (err, tlsSocket) => {
+    this.server.on("tlsClientError", (err, tlsSocket) => {
       this.events.push({
-        type: 'tlsClientError',
+        type: "tlsClientError",
         timestamp: new Date(),
         error: err.message,
       });
     });
   }
 
-  private handleRequest(req: Http2ServerRequest, res: Http2ServerResponse): void {
+  private handleRequest(
+    req: Http2ServerRequest,
+    res: Http2ServerResponse,
+  ): void {
     // Determine the ALPN protocol
     let alpnProtocol: string | false = false;
 
-    if (req.httpVersion === '2.0') {
+    if (req.httpVersion === "2.0") {
       // HTTP/2 request
       alpnProtocol = (req.stream.session.socket as TLSSocket).alpnProtocol;
     } else {
@@ -117,7 +131,7 @@ export class MockHTTPSServer {
     }
 
     this.events.push({
-      type: 'request',
+      type: "request",
       timestamp: new Date(),
       alpnProtocol,
       requestPath: req.url,
@@ -127,12 +141,12 @@ export class MockHTTPSServer {
 
     // Serve static text content
     res.writeHead(200, {
-      'content-type': 'text/plain',
-      'x-alpn-protocol': alpnProtocol || 'none',
-      'x-http-version': req.httpVersion,
+      "content-type": "text/plain",
+      "x-alpn-protocol": alpnProtocol || "none",
+      "x-http-version": req.httpVersion,
     });
 
-    res.end('Hello from mock HTTPS server!\n');
+    res.end("Hello from mock HTTPS server!\n");
   }
 
   async start(): Promise<void> {
@@ -142,7 +156,7 @@ export class MockHTTPSServer {
         resolve();
       });
 
-      this.server.on('error', (err) => {
+      this.server.on("error", (err) => {
         reject(err);
       });
     });
@@ -187,7 +201,7 @@ export class MockHTTPSServer {
    * This represents the number of completed TLS handshakes
    */
   getTLSConnectionCount(): number {
-    return this.events.filter((e) => e.type === 'secureConnection').length;
+    return this.events.filter((e) => e.type === "secureConnection").length;
   }
 
   /**
@@ -195,14 +209,14 @@ export class MockHTTPSServer {
    * This represents the raw number of TCP sockets opened
    */
   getTCPConnectionCount(): number {
-    return this.events.filter((e) => e.type === 'connection').length;
+    return this.events.filter((e) => e.type === "connection").length;
   }
 
   /**
    * Get the count of HTTP requests
    */
   getRequestCount(): number {
-    return this.events.filter((e) => e.type === 'request').length;
+    return this.events.filter((e) => e.type === "request").length;
   }
 
   /**
@@ -211,7 +225,7 @@ export class MockHTTPSServer {
    */
   getClientALPNProtocols(): (string[] | undefined)[] {
     return this.events
-      .filter((e) => e.type === 'secureConnection')
+      .filter((e) => e.type === "secureConnection")
       .map((e) => e.clientProtocols);
   }
 }
@@ -221,22 +235,22 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const server = new MockHTTPSServer({
     port: 8443,
     customALPNCallback: (clientProtocols) => {
-      console.log('Client ALPN protocols:', clientProtocols);
+      console.log("Client ALPN protocols:", clientProtocols);
       // Prefer h2, fallback to http/1.1
-      if (clientProtocols.includes('h2')) return 'h2';
-      if (clientProtocols.includes('http/1.1')) return 'http/1.1';
+      if (clientProtocols.includes("h2")) return "h2";
+      if (clientProtocols.includes("http/1.1")) return "http/1.1";
       return undefined;
     },
   });
 
   await server.start();
-  console.log('Mock HTTPS server listening on https://localhost:8443');
-  console.log('Press Ctrl+C to stop');
+  console.log("Mock HTTPS server listening on https://localhost:8443");
+  console.log("Press Ctrl+C to stop");
 
-  process.on('SIGINT', async () => {
-    console.log('\nStopping server...');
+  process.on("SIGINT", async () => {
+    console.log("\nStopping server...");
     await server.stop();
-    console.log('Server stopped');
+    console.log("Server stopped");
     process.exit(0);
   });
 }

@@ -1,14 +1,14 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
     globals: true,
-    environment: 'node',
+    environment: "node",
     testTimeout: 30000,
     hookTimeout: 30000,
     teardownTimeout: 10000,
     env: {
-      NODE_TLS_REJECT_UNAUTHORIZED: '0',
+      NODE_TLS_REJECT_UNAUTHORIZED: "0",
     },
   },
 });

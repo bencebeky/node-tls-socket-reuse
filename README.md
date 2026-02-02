@@ -45,6 +45,7 @@ openssl req -x509 -newkey rsa:2048 -keyout server-key.pem -out server-cert.pem -
 ```
 
 This creates:
+
 - `certs/server-key.pem` - Private key
 - `certs/server-cert.pem` - Self-signed certificate valid for 365 days
 
@@ -87,13 +88,13 @@ The server captures and tracks the following events:
 3. **request**: HTTP request received from client
 
 ```typescript
-import { MockHTTPSServer } from './src/server/https-server.js';
+import { MockHTTPSServer } from "./src/server/https-server.js";
 
 const server = new MockHTTPSServer({
   port: 8443,
   customALPNCallback: (clientProtocols) => {
     // Return preferred protocol: 'h2', 'http/1.1', or undefined
-    return clientProtocols.includes('h2') ? 'h2' : 'http/1.1';
+    return clientProtocols.includes("h2") ? "h2" : "http/1.1";
   },
 });
 
@@ -110,15 +111,15 @@ await server.stop();
 
 ```typescript
 interface TLSConnectionEvent {
-  type: 'connection' | 'secureConnection' | 'request' | 'tlsClientError';
+  type: "connection" | "secureConnection" | "request" | "tlsClientError";
   timestamp: Date;
-  alpnProtocol?: string | false;           // Negotiated ALPN protocol
-  clientProtocols?: string[];              // Protocols offered by client
-  selectedProtocol?: string;               // Protocol selected by server
-  requestPath?: string;                    // HTTP request path
-  requestMethod?: string;                  // HTTP method (GET, POST, etc.)
-  httpVersion?: string;                    // HTTP version (1.1, 2.0)
-  error?: string;                          // Error message if applicable
+  alpnProtocol?: string | false; // Negotiated ALPN protocol
+  clientProtocols?: string[]; // Protocols offered by client
+  selectedProtocol?: string; // Protocol selected by server
+  requestPath?: string; // HTTP request path
+  requestMethod?: string; // HTTP method (GET, POST, etc.)
+  httpVersion?: string; // HTTP version (1.1, 2.0)
+  error?: string; // Error message if applicable
 }
 ```
 
@@ -127,31 +128,37 @@ interface TLSConnectionEvent {
 ### Http2WrapperClient
 
 ```typescript
-import { Http2WrapperClient } from './src/clients/http2-wrapper-client.js';
+import { Http2WrapperClient } from "./src/clients/http2-wrapper-client.js";
 
 const client = new Http2WrapperClient();
 
 // Single request
-const response = await client.request('https://localhost:8443/test');
+const response = await client.request("https://localhost:8443/test");
 console.log(response.body);
 
 // Multiple requests
-const responses = await client.multipleRequests('https://localhost:8443/test', 5);
+const responses = await client.multipleRequests(
+  "https://localhost:8443/test",
+  5,
+);
 ```
 
 ### FetchH2Client
 
 ```typescript
-import { FetchH2Client } from './src/clients/fetch-h2-client.js';
+import { FetchH2Client } from "./src/clients/fetch-h2-client.js";
 
 const client = new FetchH2Client();
 
 // Single request
-const response = await client.request('https://localhost:8443/test');
+const response = await client.request("https://localhost:8443/test");
 console.log(response.body);
 
 // Multiple requests
-const responses = await client.multipleRequests('https://localhost:8443/test', 5);
+const responses = await client.multipleRequests(
+  "https://localhost:8443/test",
+  5,
+);
 
 // Cleanup
 await client.disconnect();
@@ -185,13 +192,13 @@ The server demonstrates dynamic ALPN configuration, allowing you to control whic
 
 ```typescript
 customALPNCallback: (clientProtocols) => {
-  console.log('Client offered:', clientProtocols);
+  console.log("Client offered:", clientProtocols);
   // Returns: ['h2', 'http/1.1']
 
-  if (clientProtocols.includes('h2')) return 'h2';
-  if (clientProtocols.includes('http/1.1')) return 'http/1.1';
+  if (clientProtocols.includes("h2")) return "h2";
+  if (clientProtocols.includes("http/1.1")) return "http/1.1";
   return undefined; // Reject connection
-}
+};
 ```
 
 ### Event Sequence

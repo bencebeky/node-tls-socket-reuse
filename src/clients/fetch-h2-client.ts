@@ -1,6 +1,6 @@
-import { context, fetch, disconnectAll } from 'fetch-h2';
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import { context, fetch, disconnectAll } from "fetch-h2";
+import { readFileSync } from "fs";
+import { join } from "path";
 
 export interface ClientResponse {
   statusCode: number;
@@ -27,7 +27,7 @@ export class FetchH2Client {
     const contextOptions: any = {
       // Accept self-signed certificates
       overwriteUserAgent: false,
-      userAgent: 'fetch-h2-client/1.0',
+      userAgent: "fetch-h2-client/1.0",
       // Pass TLS options to accept self-signed certificates
       session: {
         rejectUnauthorized: this.config.rejectUnauthorized,
@@ -46,18 +46,18 @@ export class FetchH2Client {
     const headers: Record<string, string> = {};
     if (response.headers) {
       // fetch-h2 uses headers.raw() to get all headers (returns object with array values)
-      if (typeof response.headers.raw === 'function') {
+      if (typeof response.headers.raw === "function") {
         const rawHeaders = response.headers.raw();
         for (const [key, values] of Object.entries(rawHeaders)) {
           // Headers are arrays in raw(), take the first value
           headers[key] = Array.isArray(values) ? values[0] : String(values);
         }
-      } else if (typeof response.headers.entries === 'function') {
+      } else if (typeof response.headers.entries === "function") {
         // Use entries() iterator for GuardedHeaders
         for (const [key, value] of response.headers.entries()) {
           headers[key] = value;
         }
-      } else if (typeof response.headers.forEach === 'function') {
+      } else if (typeof response.headers.forEach === "function") {
         // Fallback to forEach if available
         response.headers.forEach((value: string, key: string) => {
           headers[key] = value;
@@ -69,9 +69,9 @@ export class FetchH2Client {
     }
 
     // Convert httpVersion number to string format (e.g., 2 -> '2.0')
-    let httpVersion = response.httpVersion || '2.0';
-    if (typeof httpVersion === 'number') {
-      httpVersion = httpVersion === 2 ? '2.0' : String(httpVersion);
+    let httpVersion = response.httpVersion || "2.0";
+    if (typeof httpVersion === "number") {
+      httpVersion = httpVersion === 2 ? "2.0" : String(httpVersion);
     }
 
     return {
@@ -82,7 +82,10 @@ export class FetchH2Client {
     };
   }
 
-  async multipleRequests(url: string, count: number): Promise<ClientResponse[]> {
+  async multipleRequests(
+    url: string,
+    count: number,
+  ): Promise<ClientResponse[]> {
     const requests: Promise<ClientResponse>[] = [];
 
     for (let i = 0; i < count; i++) {
