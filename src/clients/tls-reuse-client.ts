@@ -203,7 +203,7 @@ export class TLSReuseClient {
     });
   }
 
-  async request(url: string, reuseSocket: boolean = true): Promise<ClientResponse> {
+  async request(url: string): Promise<ClientResponse> {
     const parsedUrl = new URL(url);
     const hostname = parsedUrl.hostname;
     const port = parseInt(parsedUrl.port) || 443;
@@ -211,8 +211,8 @@ export class TLSReuseClient {
 
     let connection: CachedConnection;
 
-    // Check if we have a cached connection and if we should reuse it
-    if (reuseSocket && this.connectionCache.has(connectionKey)) {
+    // Check if we have a cached connection
+    if (this.connectionCache.has(connectionKey)) {
       connection = this.connectionCache.get(connectionKey)!;
 
       // Check if the socket is still connected
@@ -232,10 +232,7 @@ export class TLSReuseClient {
       // Create a new TLS connection
       const socket = await this.createTLSConnection(hostname, port);
       connection = { socket };
-
-      if (reuseSocket) {
-        this.connectionCache.set(connectionKey, connection);
-      }
+      this.connectionCache.set(connectionKey, connection);
     }
 
     // Determine which protocol was negotiated
